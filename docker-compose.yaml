@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lifi-events-indexer
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    depends_on:
+      - mongodb
+      - migrations
+    env_file:
+      - .env
+    environment:
+      - MONGODB_URI=mongodb://admin:admin@mongodb:27017/lifi?authSource=admin
+      - PORT=3000
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - NODE_ENV=production
+    volumes:
+      - ./dist:/app/dist
+
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: lifi-migrations
+    restart: 'no'
+    depends_on:
+      - mongodb
+    command: sh -c "cd /app && pnpm ts-node ./node_modules/migrate-mongo/bin/migrate-mongo.js up"
+    env_file:
+      - .env
+    environment:
+      - MONGODB_URI=mongodb://admin:admin@mongodb:27017/lifi
+      - NODE_ENV=production
+    volumes:
+      - ./migrations:/app/migrations
+
+  mongodb:
+    image: mongo:6
+    container_name: lifi-mongodb
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+      - MONGO_INITDB_DATABASE=lifi
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:
+    driver: local
